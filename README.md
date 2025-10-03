@@ -5,27 +5,6 @@ Sistema completo de **Machine Learning para detecção de fraude** com pipeline 
 
 ---
 
-## 🏆 Modelo Final
-
-**Quando usar**: Primeira vez ou após mudanças no dataset original.
-
----
-
-### Modo 1: Train (Treinamento Rápido)t v2.1.0** - Modelo otimizado em produção:
-
-| Métrica | Valor | Benefício |
-|---------|-------|-----------|
-| **PR-AUC** | 0.8772 | Métrica robusta para desbalanceamento |
-| **Precision** | 86.60% | 86% das predições de fraude estão corretas |
-| **Recall** | 81.63% | Detecta 82% das fraudes reais |
-| **F1-Score** | 84.04% | Equilíbrio entre Precision e Recall |
-| **Falsos Positivos** | 13 | Apenas R$ 260/dia de custo operacional |
-| **Features** | 33 | Modelo enxuto e rápido (11% redução) |
-
-**Dataset**: creditcard.csv (Kaggle) - 284.807 transações, 492 fraudes (0.172%)
-
----
-
 ## 🎯 Objetivo
 
 Desenvolver sistema de detecção de fraude usando **XGBoost otimizado** com:
@@ -408,8 +387,7 @@ python main.py predict --json '{"V1": -0.5, "V2": 1.2, "V3": 0.8, "Amount_Log": 
  
 ### Arquitetura MVC-ML
 - **`src/ml/README.md`**: Documentação completa da arquitetura modular
-
----
+ 
     
 ---
 
@@ -698,22 +676,19 @@ data_splits              - Histórico de splits train/test
 - [x] Documentação (plan_main.md, plan_kafka.md, changelog.md)
 
 ### 🔄 Em Progresso
-- [ ] Revisão do codigo
+- [ ] Decisão da aplicação
 
 ### 📋 Próximos Passos
-- [ ] Dashboard Flask
+- [ ] App/Dashboard Flask
 - [ ] Kafka Streaming (opcional)
 - [ ] Vídeo explicativo
 
 ---
 
 ## 📚 Documentação
-
-- **[Plan Main](docs/plan_main.md)**: Plano completo do MVP
-- **[Plan Kafka](docs/plan_kafka.md)**: Enhancement com streaming (opcional)
-- **[Changelog](docs/changelog.md)**: Registro de mudanças
+ 
 - **[Decisões Técnicas](docs/DECISOES_TECNICAS.md)**: Justificativas metodológicas
-- **[Pipeline README](src/data_processing/README.md)**: Documentação do pipeline
+- **[Pipeline de Tratamento de dados README](src/ml/README.md)**: Documentação do pipeline
 
 ---
 

@@ -19,3 +19,5 @@ reports/*
 plan*.md
 changelog.md
 *.pdf
+
+data/creditcard.csv
