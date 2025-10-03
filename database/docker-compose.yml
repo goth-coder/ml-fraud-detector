@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fraud_detection_postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: fraud_password
+      POSTGRES_DB: fraud_detection
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./seed_data.sql:/docker-entrypoint-initdb.d/02_seed_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud_user -d fraud_detection"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped    {
+        'colsample_bytree': 0.7,
+        'learning_rate': 0.3,
+        'max_depth': 6,
+        'min_child_weight': 1,
+        'n_estimators': 100,  # vs 200 no v2.0.0
+        'subsample': 0.7,
+        'scale_pos_weight': 577
+    }
+
+volumes:
+  postgres_data:
+    driver: local
