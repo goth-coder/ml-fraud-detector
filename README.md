@@ -76,7 +76,7 @@ src/ml/
 - `cleaned_transactions` (284,804 linhas): Sem outliers
 - `imputed_transactions` (284,804 linhas): Sem missing values
 - `normalized_transactions` (284,804 linhas): Features normalizadas
-- `engineered_transactions` (284,804 linhas): Features novas (40 colunas)
+- `engineered_transactions` (284,804 linhas): Adição de features novas 
 - `train_features` (~227,843 linhas): 80% treino
 - `test_features` (~56,961 linhas): 20% teste
 
