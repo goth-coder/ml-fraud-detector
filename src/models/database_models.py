@@ -99,3 +99,55 @@ class MetricsHistory(Base):
     metric_value = Column(Float)
     threshold = Column(Float, nullable=True)
     recorded_at = Column(DateTime, server_default=func.now())
+
+
+class ClassificationResult(Base):
+    """
+    Tabela de resultados de classificação do webapp.
+    
+    Armazena cada predição feita via dashboard para histórico e estatísticas.
+    """
+    __tablename__ = 'classification_results'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Metadados da predição
+    model_version = Column(String(20), nullable=False)  # v2.1.0
+    predicted_at = Column(DateTime, server_default=func.now(), nullable=False)
+    
+    # Resultado da classificação
+    is_fraud = Column(Boolean, nullable=False)
+    fraud_probability = Column(Float, nullable=False)
+    
+    # Features da transação (JSON para flexibilidade)
+    transaction_features = Column(JSON, nullable=False)
+    
+    # Metadata
+    source = Column(String(20), default='webapp')  # webapp, api, batch
+    
+    def __repr__(self):
+        return f"<ClassificationResult(id={self.id}, is_fraud={self.is_fraud}, probability={self.fraud_probability:.4f})>"
+
+
+class Transaction(Base):
+    """
+    Tabela de transações simuladas pelo webapp.
+    
+    Armazena transações geradas pelo simulador para análise posterior.
+    """
+    __tablename__ = 'simulated_transactions'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Metadados
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    transaction_type = Column(String(20), nullable=False)  # legitimate, fraud
+    
+    # Features completas (33 features)
+    features = Column(JSON, nullable=False)
+    
+    # Link com resultado de classificação (opcional)
+    classification_id = Column(Integer, nullable=True)
+    
+    def __repr__(self):
+        return f"<Transaction(id={self.id}, type={self.transaction_type})>"

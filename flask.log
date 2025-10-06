@@ -1,0 +1,18 @@
+INFO:src.services.database.connection:✅ Database connection established: localhost:5432/fraud_detection
+✅ Transaction pools carregados:
+   - Legítimas: 56864 transações
+   - Fraudulentas: 98 transações
+🚀 Starting Flask app in development mode
+📍 Server running at http://127.0.0.1:5000
+🤖 Model: XGBoost v2.1.0
+📊 Dashboard: http://127.0.0.1:5000/
+🔧 Health check: http://127.0.0.1:5000/health
+ * Serving Flask app 'src.api'
+ * Debug mode: on
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+INFO:src.services.database.connection:✅ Database connection established: localhost:5432/fraud_detection
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 692-137-133

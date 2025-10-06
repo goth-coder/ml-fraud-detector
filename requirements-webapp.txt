@@ -1,0 +1,5 @@
+# Flask Web Application Dependencies
+# Complementa requirements.txt com dependências específicas do webapp
+
+
+Flask Flask-CORS Werkzeug  Flask-SQLAlchemy gunicorn python-dotenv gevent python-dateutil

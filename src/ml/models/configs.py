@@ -192,6 +192,16 @@ class FeatureSelectionConfig:
         'V13' 
     ])
     
+    # Features INCLUÍDAS após feature engineering e seleção (33 features)
+    # Usado pelo Model Service para validação
+    included_features: List[str] = field(default_factory=lambda: [
+        'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V9', 'V10', 'V11',
+        'V12', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21',
+        'V22', 'V24', 'V25', 'V26', 'V27', 'V28',
+        'Time_Hours', 'Amount_Log', 'Amount_Bin',
+        'V_Mean', 'V_Std', 'V_Min', 'V_Max', 'V_Range'
+    ])
+    
     # Thresholds para análise automática (ajuda na decisão)
     min_pearson_correlation: float = 0.01
     min_spearman_correlation: float = 0.01
@@ -202,7 +212,7 @@ class FeatureSelectionConfig:
     max_correlation_threshold: float = 0.95  # Features redundantes entre si
     
     # Versionamento
-    model_version: str = "1.1.0"  # Incrementado: removido Time cru
+    model_version: str = "2.1.0"  # Current production model
 
 
 @dataclass
