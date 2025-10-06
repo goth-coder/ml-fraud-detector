@@ -106,6 +106,10 @@ class ClassificationResult(Base):
     Tabela de resultados de classificação do webapp.
     
     Armazena cada predição feita via dashboard para histórico e estatísticas.
+    
+    IMPORTANTE: 
+    - is_fraud = GROUND TRUTH (label real da transação, não predição)
+    - fraud_probability = predição do modelo (0.0 a 1.0)
     """
     __tablename__ = 'classification_results'
     
@@ -115,9 +119,12 @@ class ClassificationResult(Base):
     model_version = Column(String(20), nullable=False)  # v2.1.0
     predicted_at = Column(DateTime, server_default=func.now(), nullable=False)
     
-    # Resultado da classificação
-    is_fraud = Column(Boolean, nullable=False)
-    fraud_probability = Column(Float, nullable=False)
+    # Ground Truth e Predição
+    is_fraud = Column(Boolean, nullable=False)  # ⚠️ GROUND TRUTH (label real)
+    fraud_probability = Column(Float, nullable=False)  # Predição do modelo (0-1)
+    
+    # Performance
+    latency_ms = Column(Float, nullable=True)  # Tempo de inferência em ms
     
     # Features da transação (JSON para flexibilidade)
     transaction_features = Column(JSON, nullable=False)

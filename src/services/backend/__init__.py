@@ -2,6 +2,7 @@
 Flask Application Factory
 Cria e configura a aplicação Flask para o dashboard de detecção de fraudes.
 """
+import os
 from flask import Flask, render_template
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -20,23 +21,31 @@ def create_app(config_name='development'):
     Returns:
         Flask app configurada
     """
-    app = Flask(__name__)
+    # Define paths para templates e static
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    services_dir = os.path.dirname(backend_dir)
+    frontend_dir = os.path.join(services_dir, 'frontend')
     
-    from src.api.config import config
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(frontend_dir, 'templates'),
+        static_folder=os.path.join(frontend_dir, 'static')
+    )
+    
+    from src.services.backend.config import config
     app.config.from_object(config[config_name])
     
     # CORS: Permite apenas frontend local acessar a API
-    # Isso bloqueia requisições de outros sites (segurança)
     CORS(app, origins=[
-        "http://localhost:5000",      # Flask serving frontend
-        "http://127.0.0.1:5000",      # Alternativa localhost
-        "http://localhost:8000",      # Se usar Python http.server
-        "http://127.0.0.1:8000"       # Alternativa http.server
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
     ])
     
     db.init_app(app)
     
-    from src.api.routes import api_bp
+    from src.services.backend.routes import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Rota principal: Serve o dashboard HTML

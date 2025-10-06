@@ -100,6 +100,8 @@ GET /api/stats?hours=24
     "total": 150,
     "fraud_count": 30,
     "fraud_percentage": 20.0,
+    "recall": 98.8,
+    "avg_latency_ms": 85,
     "avg_probability": 0.4523,
     "max_probability": 0.9987,
     "min_probability": 0.0001,
@@ -130,6 +132,8 @@ GET /api/stats?hours=24
 - `total`: Total de classificações no período
 - `fraud_count`: Quantidade de fraudes detectadas
 - `fraud_percentage`: Percentual de fraudes (%)
+- `recall`: Taxa de detecção de fraudes - TP/(TP+FN) * 100
+- `avg_latency_ms`: Latência média de inferência em milissegundos
 - `avg_probability`: Probabilidade média de fraude
 - `max_probability`: Maior probabilidade detectada
 - `min_probability`: Menor probabilidade detectada
@@ -166,6 +170,8 @@ GET /api/history?limit=2
       "predicted_at": "2025-10-06T10:30:00.123456",
       "is_fraud": true,
       "fraud_probability": 0.9876,
+      "amount": 245.50,
+      "confidence": "ALTA",
       "model_version": "v2.1.0",
       "source": "webapp"
     },
@@ -174,6 +180,8 @@ GET /api/history?limit=2
       "predicted_at": "2025-10-06T10:29:45.987654",
       "is_fraud": false,
       "fraud_probability": 0.0012,
+      "amount": 89.20,
+      "confidence": "BAIXA",
       "model_version": "v2.1.0",
       "source": "webapp"
     }
@@ -194,6 +202,8 @@ GET /api/history?limit=2
 - `predicted_at`: Timestamp da predição (ISO 8601)
 - `is_fraud`: Boolean indicando se é fraude
 - `fraud_probability`: Probabilidade de fraude (0.0 a 1.0)
+- `amount`: Valor da transação em dólares
+- `confidence`: Confiança da classificação (ALTA/MÉDIA/BAIXA)
 - `model_version`: Versão do modelo usado
 - `source`: Origem da predição (`webapp`, `api`, `batch`)
 
@@ -259,7 +269,9 @@ curl http://localhost:5000/health
 
 ## 🚀 Próximos Passos
 
-- [ ] Frontend Dashboard (HTML/CSS/JS)
+- [x] Frontend Dashboard (HTML/CSS/JS) com estatísticas avançadas
+- [x] Métricas de Precision e Latência no painel
+- [x] Tabela de histórico com valor e confiança
 - [ ] WebSocket para streaming real-time (opcional)
 - [ ] Autenticação (se necessário)
 - [ ] Rate limiting (produção)

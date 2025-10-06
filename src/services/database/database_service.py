@@ -29,17 +29,21 @@ class DatabaseService:
         fraud_probability: float,
         transaction_features: Dict[str, float],
         model_version: str = "v2.1.0",
-        source: str = "webapp"
+        source: str = "webapp",
+        latency_ms: Optional[float] = None
     ) -> int:
         """
         Salva resultado de classificação no banco.
         
+        IMPORTANTE: is_fraud deve ser o GROUND TRUTH (label real), não a predição!
+        
         Args:
-            is_fraud: Se foi classificado como fraude
-            fraud_probability: Probabilidade de fraude (0.0 a 1.0)
+            is_fraud: Ground truth - se a transação É REALMENTE fraude (não predição)
+            fraud_probability: Predição do modelo (0.0 a 1.0)
             transaction_features: Dicionário com 33 features
             model_version: Versão do modelo usado
             source: Origem da predição (webapp, api, batch)
+            latency_ms: Tempo de inferência em milissegundos
             
         Returns:
             ID da classificação salva
@@ -47,10 +51,12 @@ class DatabaseService:
         Example:
             >>> service = DatabaseService()
             >>> features = {'V1': 0.5, 'V2': -1.2, ...}
+            >>> # Transação REAL é fraude, mas modelo previu 0.45 (falso negativo)
             >>> id = service.save_classification(
-            ...     is_fraud=True,
-            ...     fraud_probability=0.9876,
-            ...     transaction_features=features
+            ...     is_fraud=True,  # Ground truth
+            ...     fraud_probability=0.45,  # Predição (< 0.5)
+            ...     transaction_features=features,
+            ...     latency_ms=82.5
             ... )
         """
         from sqlalchemy.orm import sessionmaker
@@ -64,7 +70,8 @@ class DatabaseService:
                 is_fraud=is_fraud,
                 fraud_probability=fraud_probability,
                 transaction_features=transaction_features,
-                source=source
+                source=source,
+                latency_ms=latency_ms
             )
             
             session.add(result)
@@ -153,17 +160,33 @@ class DatabaseService:
                 .limit(limit)\
                 .all()
             
-            return [
-                {
+            history_data = []
+            for r in results:
+                amount_log = r.transaction_features.get('Amount_Log', 0)
+                import math
+                amount = math.exp(amount_log) if amount_log else 0
+                
+                prob = r.fraud_probability * 100
+                
+                if prob < 10 or prob > 90:
+                    confidence = 'ALTA'
+                elif (prob >= 10 and prob < 20) or (prob > 80 and prob <= 90):
+                    confidence = 'MODERADA'
+                else:
+                    confidence = 'BAIXA'
+                
+                history_data.append({
                     'id': r.id,
                     'predicted_at': r.predicted_at.isoformat(),
                     'is_fraud': r.is_fraud,
                     'fraud_probability': round(r.fraud_probability, 4),
+                    'amount': round(amount, 2),
+                    'confidence': confidence,
                     'model_version': r.model_version,
                     'source': r.source
-                }
-                for r in results
-            ]
+                })
+            
+            return history_data
             
         finally:
             session.close()
@@ -209,7 +232,8 @@ class DatabaseService:
             stats_query = session.query(
                 func.avg(ClassificationResult.fraud_probability).label('avg_prob'),
                 func.max(ClassificationResult.fraud_probability).label('max_prob'),
-                func.min(ClassificationResult.fraud_probability).label('min_prob')
+                func.min(ClassificationResult.fraud_probability).label('min_prob'),
+                func.avg(ClassificationResult.latency_ms).label('avg_latency')
             ).filter(ClassificationResult.predicted_at >= since).first()
             
             # Contagem por hora
@@ -220,10 +244,31 @@ class DatabaseService:
                 ClassificationResult.predicted_at >= since
             ).group_by('hour').order_by('hour').all()
             
+            true_positives = query.filter(
+                ClassificationResult.is_fraud == True,
+                ClassificationResult.fraud_probability > 0.5
+            ).count()
+            
+            false_positives = query.filter(
+                ClassificationResult.is_fraud == False,
+                ClassificationResult.fraud_probability > 0.5
+            ).count()
+            
+            false_negatives = query.filter(
+                ClassificationResult.is_fraud == True,
+                ClassificationResult.fraud_probability <= 0.5
+            ).count()
+            
+            # Recall = TP / (TP + FN) - Taxa de detecção de fraudes
+            recall = round((true_positives / (true_positives + false_negatives) * 100) if (true_positives + false_negatives) > 0 else 0, 1)
+            avg_latency = round(stats_query.avg_latency or 0, 2)
+            
             return {
                 'total': total,
                 'fraud_count': fraud_count,
                 'fraud_percentage': round((fraud_count / total * 100) if total > 0 else 0, 2),
+                'recall': recall,
+                'avg_latency_ms': avg_latency,
                 'avg_probability': round(stats_query.avg_prob or 0, 4),
                 'max_probability': round(stats_query.max_prob or 0, 4),
                 'min_probability': round(stats_query.min_prob or 0, 4),
@@ -269,6 +314,46 @@ class DatabaseService:
         except Exception as e:
             session.rollback()
             raise Exception(f"Erro ao limpar dados: {e}")
+        finally:
+            session.close()
+    
+    def clear_all_history(self) -> int:
+        """
+        Remove TODOS os registros de histórico (classificações e transações).
+        
+        ATENÇÃO: Esta operação é IRREVERSÍVEL!
+        Remove todos os dados das tabelas:
+        - classification_results
+        - simulated_transactions
+        
+        Returns:
+            Número total de registros deletados
+            
+        Example:
+            >>> deleted = database_service.clear_all_history()
+            >>> print(f"{deleted} registros removidos")
+        """
+        from sqlalchemy.orm import sessionmaker
+        
+        Session = sessionmaker(bind=self._engine)
+        session = Session()
+        
+        try:
+            classification_count = session.query(ClassificationResult).count()
+            transaction_count = session.query(Transaction).count()
+            
+            session.query(Transaction).delete()
+            session.query(ClassificationResult).delete()
+            
+            session.commit()
+            
+            total_deleted = classification_count + transaction_count
+            
+            return total_deleted
+            
+        except Exception as e:
+            session.rollback()
+            raise Exception(f"Erro ao limpar histórico: {e}")
         finally:
             session.close()
 

@@ -1,7 +1,37 @@
-# 🚨 Detecção de Fraude em Cartão de Crédito
-## Tech Challenge Fase 3 - FIAP
+# 🚨 Sistema de Detecção de Fraude em Cartão de Crédito
 
-Sistema completo de **Machine Learning para detecção de fraude** com pipeline modular, PostgreSQL para persistência, CLI interativo e **Dashboard Web Flask**.
+Sistema completo de **Machine Learning para detecção de fraude** com pipeline modular, PostgreSQL para persistência, CLI interativo e **Dashboard Web Interativo**. Feito com intuito de servir de projeto para o Tech Challenge Fase 3 - FIAP.
+
+---
+
+## 🚀 Teste Agora! (Quick Demo)
+
+**Quer ver o sistema funcionando?** Execute o dashboard em 3 passos:
+
+```bash
+# 1. Inicie o servidor Flask
+python run.py
+
+# 2. Acesse no navegador
+# http://127.0.0.1:5000
+
+# 3. Teste o detector!
+#    → Clique no botão "LEGÍTIMA" ou "FRAUDULENTA"
+#    → Clique em "EXECUTAR SIMULAÇÃO"
+#    → Veja o resultado em tempo real com:
+#       ✅ Predição do modelo (o que o XGBoost classificou)
+#       🎯 Ground Truth (o que a transação realmente é)
+#       📊 Probabilidade de fraude (0-100%)
+#       🔍 Confiança da predição (ALTA/MODERADA/BAIXA)
+#       ⚡ Latência de inferência (tempo real medido)
+```
+
+**🎯 O que você vai ver:**
+- **Painel de Simulação**: Selecione tipo de transação e simule em 1 clique
+- **Estatísticas em Tempo Real**: Total, fraudes detectadas, Recall (taxa de detecção), latência
+- **Histórico Completo**: Todas as classificações com predição vs realidade 
+
+> 💡 **Dica**: Simule várias transações fraudulentas e veja o modelo errando algumas (~15% de erro). Isso mostra que o modelo é **realista** e não overfitted!
 
 ---
 
@@ -15,102 +45,113 @@ Desenvolver sistema de detecção de fraude usando **XGBoost otimizado** com:
 - ✅ **PostgreSQL** (dados) + **Pickle** (modelos) para rastreabilidade
 - ✅ **CLI completo** (pipeline/train/tune/predict) com 4 modos de operação
 - ✅ **Backend Flask REST API** com simulação de transações em tempo real
+- ✅ **Dashboard Web Interativo** com estatísticas, histórico e visualização de resultados
 ---
 
 ## 🏗️ Arquitetura do Projeto
 
-### Estrutura MVC-ML Modular
- 
+### Estrutura MVC-ML + Services Layer
+
+O projeto segue uma **arquitetura modular em camadas** que separa responsabilidades:
+- **Model (M)**: `src/models/` - SQLAlchemy ORM + ML configs
+- **View (V)**: `src/services/frontend/` - Templates HTML + Assets estáticos
+- **Controller (C)**: `src/services/backend/` - Flask routes + Business logic
+- **ML Pipeline**: `src/ml/` - Processamento de dados + Treinamento
+- **Services**: `src/services/` - Camadas de infraestrutura (Database, ML, Frontend, Backend)
+
 ```
 ml-fraud-detector/
-├── main.py                      # 🎯 CLI principal (pipeline/train/tune/predict)
-├── pyproject.toml               # Configuração do projeto (uv/pip)
-├── requirements.txt             # Dependências Python
-├── README.md                    # Este arquivo
-│
 ├── data/                        # 📊 Datasets e configurações
-│   ├── creditcard.csv           # Dataset original (284,807 transações)
-│   ├── xgboost_hyperparameters.json  # Hiperparâmetros ativos
 │   ├── archive/                 # Versões antigas de hiperparâmetros
-│   └── examples/                # Exemplos de transações para teste
-│       ├── fraud_transaction.json
-│       └── legitimate_transaction.json
+│   ├── examples/                # Exemplos de transações para teste
+│   │   ├── fraud_transaction.json
+│   │   └── legitimate_transaction.json
+│   ├── creditcard.csv           # Dataset original (284,807 transações)
+│   └── xgboost_hyperparameters.json  # ⚙️ Hiperparâmetros ativos
 │
-├── models/                      # 🤖 Modelos treinados
-│   ├── scalers.pkl              # RobustScaler + StandardScaler
-│   ├── xgboost_v2.1.0.pkl       # ⭐ Modelo em produção
-│   └── archive/                 # Versões antigas de modelos
-│
-├── reports/                     # 📈 Relatórios gerados (JSON)
-│   └── feature_selection_report.json
-│
-├── database/                    # 🗄️ Configuração PostgreSQL
+├── database/                    # �️ Configuração PostgreSQL
+│   ├── migrations/              # Scripts SQL de migração
+│   │   └── create_webapp_tables.sql
 │   ├── docker-compose.yml       # Docker setup (PostgreSQL 15)
-│   └── schema.sql               # Schema completo (7 tabelas pipeline + 3 metadata)
+│   └── schema.sql               # Schema completo (7 tabelas pipeline + 2 webapp)
 │
 ├── docs/                        # 📚 Documentação técnica
-│   ├── EDA_REPORT.md            # Análise exploratória
-│   ├── MODEL_SELECTION.md       # Comparação de 4 modelos
+│   ├── images/                  # Gráficos e screenshots
+│   ├── API_ENDPOINTS.md         # Documentação REST API 
 │   ├── DATA_ARCHITECTURE.md     # Arquitetura PostgreSQL + Pickle
 │   ├── DECISOES_TECNICAS.md     # Decisões ML + otimizações
-│   ├── TRANSACTION_EXAMPLES.md  # Exemplos práticos de transações (fraude vs legítima)
-│   └── images/                  # Gráficos EDA
-│       ├── 01_class_distribution.png
-│       ├── 02_amount_analysis.png
-│       ├── 03_correlation_heatmap.png
-│       └── ...
+│   ├── EDA_REPORT.md            # Análise exploratória completa 
+│   ├── MODEL_SELECTION.md       # Comparação de 4 modelos
+│   ├── TRANSACTION_EXAMPLES.md  # Exemplos práticos 
 │
-└── src/                         # 💻 Código fonte
-    ├── __init__.py
-    │
-    ├── ml/                      # 🧠 Machine Learning
-    │   ├── __init__.py
-    │   ├── README.md            # Documentação da arquitetura MVC-ML
-    │   │
-    │   ├── processing/          # 🔧 Funções de processamento
-    │   │   ├── __init__.py
-    │   │   ├── loader.py        # PostgreSQL COPY (otimizado 81.6%)
-    │   │   ├── validation.py    # Schema e integridade
-    │   │   ├── cleaning.py      # Análise de outliers
-    │   │   ├── normalization.py # RobustScaler + StandardScaler
-    │   │   ├── feature_engineering.py  # 9 novas features
-    │   │   ├── feature_selection.py    # Análise automatizada
-    │   │   ├── splitters.py     # Stratified train/test split
-    │   │   └── metadata.py      # Pipeline metadata tracking
-    │   │
-    │   ├── pipelines/           # 🚀 Orquestração
-    │   │   ├── __init__.py
-    │   │   └── data_pipeline.py # Steps 01-07 (completo)
-    │   │
-    │   ├── training/            # 🎓 Treinamento ML
-    │   │   ├── __init__.py
-    │   │   ├── train.py         # Treino com JSON configs
-    │   │   └── tune.py          # Grid Search + auto-update JSON
-    │   │
-    │   └── models/              # ⚙️ Configurações
-    │       ├── __init__.py
-    │       └── configs.py       # Dataclasses + carregamento JSON
-    │
-    ├── api/                     # 🌐 Backend Flask
-    │   ├── __init__.py          # Factory pattern (create_app)
-    │   ├── config.py            # Configurações (Dev/Prod/Test)
-    │   └── routes.py            # Endpoints REST
-    │
-    ├── models/                  # 📦 Data models
-    │   ├── __init__.py
-    │   └── database_models.py   # SQLAlchemy models (pipeline + webapp)
-    │
-    └── services/                # 🔌 Serviços
-        ├── ml/                  # 🤖 ML Services
-        │   ├── model_service.py      # Singleton para inferência
-        │   └── transaction_generator.py  # Gerador de transações
-        │
-        └── database/            # 🗄️ Conexão PostgreSQL
-            ├── __init__.py
-            ├── connection.py    # Engine + connection pooling
-            └── database_service.py  # CRUD para webapp
+├── models/                      # 🤖 Modelos treinados (Pickle)
+│   ├── archive/                 # Versões antigas de modelos
+│   ├── scalers.pkl              # RobustScaler + StandardScaler
+│   └── xgboost_v2.1.0.pkl       # ⭐ Modelo em produção
+│
+├── reports/                     # 📈 Relatórios gerados (JSON)
+│   └── feature_selection_analysis.json
+│
+├── src/                         # 💻 Código fonte
+│   ├── ml/                      # 🧠 Machine Learning Pipeline
+│   │   ├── models/              # ⚙️ Configurações
+│   │   │   ├── __init__.py
+│   │   │   └── configs.py       # Dataclasses + JSON loader
+│   │   ├── pipelines/           # 🚀 Orquestração
+│   │   │   ├── __init__.py
+│   │   │   └── data_pipeline.py # Steps 01-07 (completo)
+│   │   ├── processing/          # 🔧 Funções de processamento
+│   │   │   ├── __init__.py
+│   │   │   ├── cleaning.py      # Análise de outliers
+│   │   │   ├── feature_engineering.py  # 9 novas features
+│   │   │   ├── feature_selection.py    # Análise automatizada
+│   │   │   ├── loader.py        # PostgreSQL COPY (otimizado 81.6%)
+│   │   │   ├── metadata.py      # Pipeline metadata tracking
+│   │   │   ├── normalization.py # RobustScaler + StandardScaler
+│   │   │   ├── splitters.py     # Stratified train/test split
+│   │   │   └── validation.py    # Schema e integridade
+│   │   ├── training/            # 🎓 Treinamento ML
+│   │   │   ├── __init__.py
+│   │   │   ├── train.py         # Treino com JSON configs
+│   │   │   └── tune.py          # Grid Search + auto-update JSON
+│   │   ├── README.md            # Documentação MVC-ML
+│   │   └── __init__.py
+│   │
+│   ├── models/                  # 📦 Data Models (SQLAlchemy ORM)
+│   │   ├── __init__.py
+│   │   └── database_models.py   # ORM models (pipeline + webapp)
+│   │
+│   ├── services/                # 🔌 Services Layer (Infraestrutura)
+│   │   ├── backend/             # ⚙️ Backend Flask (Controller)
+│   │   │   ├── __init__.py      # Factory pattern (create_app)
+│   │   │   ├── config.py        # Configurações (Dev/Prod/Test)
+│   │   │   └── routes.py        # REST endpoints
+│   │   ├── database/            # �️ Database Service (PostgreSQL)
+│   │   │   ├── __init__.py
+│   │   │   ├── connection.py    # Engine + connection pooling
+│   │   │   └── database_service.py  # CRUD para webapp
+│   │   ├── frontend/            # 🎨 Frontend Assets (View)
+│   │   │   ├── static/
+│   │   │   │   ├── css/
+│   │   │   │   │   └── style.css    # Tema cyberpunk customizado
+│   │   │   │   └── js/
+│   │   │   │       └── app.js       # Lógica do dashboard
+│   │   │   └── templates/
+│   │   │       └── index.html       # Dashboard HTML principal
+│   │   └── ml/                  # 🤖 ML Services (Inferência)
+│   │       ├── __init__.py
+│   │       ├── model_service.py      # Singleton para predições
+│   │       └── transaction_generator.py  # Gerador de transações
+│   └── __init__.py
+│
+├── main.py                      # 🎯 CLI principal (pipeline/train/tune/predict)
+├── run.py                       # 🚀 Inicializador Flask (entry point)
+├── pyproject.toml               # Configuração do projeto (uv/pip)
+├── requirements.txt             # Dependências Python
+├── uv.lock                      # Lock file do uv
+└── README.md                    # Este arquivo
 ```
- 
+
 
 ### Pipeline de Dados (7 Steps)
 ```
@@ -518,8 +559,13 @@ curl http://localhost:5000/api/stats?hours=24
     "total": 150,
     "fraud_count": 30,
     "fraud_percentage": 20.0,
+    "precision": 86.60,
+    "avg_latency_ms": 85,
     "avg_probability": 0.4523,
-    "by_hour": [...]
+    "max_probability": 0.9987,
+    "min_probability": 0.0001,
+    "by_hour": [...],
+    "period_hours": 24
   }
 }
 ```
@@ -527,6 +573,26 @@ curl http://localhost:5000/api/stats?hours=24
 #### 3. **GET /api/history** - Histórico de Classificações
 ```bash
 curl http://localhost:5000/api/history?limit=10
+
+# Response:
+{
+  "success": true,
+  "count": 10,
+  "history": [
+    {
+      "id": 456,
+      "predicted_at": "2025-10-06T10:30:00",
+      "is_fraud": true,
+      "fraud_probability": 0.9876,
+      "amount": 245.50,
+      "confidence": "ALTA",
+      "model_version": "v2.1.0",
+      "source": "webapp"
+    },
+    ...
+  ]
+}
+```
 
 # Response:
 {
@@ -571,6 +637,65 @@ python run.py
 # Servidor rodando em:
 # http://127.0.0.1:5000
 ```
+
+---
+
+## 🎨 Dashboard Web Interativo
+
+O projeto inclui um **dashboard web completo** para simulação e monitoramento de detecção de fraudes em tempo real.
+
+![Dashboard de Detecção de Fraudes](docs/images/dashboard_screenshot.png)
+
+### Como Usar o Dashboard
+
+1. **Inicie o servidor Flask**:
+   ```bash
+   python run.py
+   ```
+
+2. **Acesse no navegador**:
+   ```
+   http://127.0.0.1:5000
+   ```
+
+3. **Simule transações**:
+   - Selecione o tipo (Legítima ou Fraudulenta)
+   - Clique em "Executar Simulação"
+   - Veja o resultado no popup (15s) com ground truth vs predição
+   - Observe a atualização automática de estatísticas e histórico
+
+4. **Monitore Performance**:
+   - Acompanhe o Recall em tempo real (% de fraudes detectadas)
+   - Verifique latência média de inferência
+   - Analise distribuição de fraudes ao longo do tempo
+
+5. **Gerencie Histórico**:
+   - Clique "Atualizar Histórico" para recarregar dados
+   - Clique "Limpar Histórico" para começar do zero (⚠️ irreversível!)
+
+### Arquitetura de Dados do Dashboard
+
+**Fluxo de Simulação**:
+```
+Frontend → POST /api/simulate → TransactionGenerator
+                                      ↓
+                                (busca transação real do test_data)
+                                      ↓
+                                ModelService (XGBoost)
+                                      ↓
+                                (predição + latência)
+                                      ↓
+                                DatabaseService
+                                      ↓
+                    (salva classification_results + simulated_transactions)
+                                      ↓
+                                Frontend ← JSON response
+```
+
+**Persistência PostgreSQL**:
+- `classification_results`: Armazena **ground truth** (is_fraud) + **predição** (fraud_probability)
+- `simulated_transactions`: Registra transações geradas com tipo e features
+- Histórico completo para análise posterior e cálculo de métricas (TP/FP/TN/FN)
 
 
 📚 **Documentação Completa da API**: [`docs/API_ENDPOINTS.md`](docs/API_ENDPOINTS.md)
@@ -627,7 +752,7 @@ excluded_features = [
 
 ## 📊 Métricas de Performance
 
-### Pipeline de Tratamento de Dados (52% mais rápido ⚡)
+### Otimizações feitas na Pipeline de Tratamento de Dados (52% mais rápido ⚡):
 
 | Step | Antes | Depois | Ganho | Otimização |
 |------|-------|--------|-------|------------|
@@ -650,9 +775,9 @@ excluded_features = [
 | **True Negatives** | 56,831 | 56,850 | 56,851 |
 
 --- 
+
  
 ## Para saber mais 🧠
----
 
 ## 🔄 Pipeline de Tratamento de Dados (Modular)
 
@@ -746,7 +871,7 @@ test_features           (~56,961 linhas)  - 20% teste
 
 -- Tabelas do Webapp
 classification_results   - Histórico de predições do dashboard
-simulated_transactions   - Transações geradas pelo simulador
+simulated_transactions   - Transações pegas dos dados de teste
 
 -- Tabelas de Metadados
 metrics_history          - Métricas de modelos ao longo do tempo
@@ -759,38 +884,13 @@ data_splits              - Histórico de splits train/test
 ## 🎯 Status do Projeto
 
 ### ✅ Concluído
-- [x] Setup PostgreSQL (Docker Compose)
-- [x] Conexão SQLAlchemy testada
-- [x] EDA completo com OOP (5 classes)
-- [x] Pipeline completo (Steps 01-07)
-- [x] Feature Engineering + Selection automatizada
-- [x] Treinamento XGBoost v2.1.0 (PR-AUC: 0.8772)
-- [x] CLI completo (pipeline/train/tune/predict)
-- [x] Backend Flask REST API
-- [x] Model Service (singleton)
-- [x] Transaction Generator (dados reais)
-- [x] Database Models para webapp
-- [x] API Endpoints (/simulate, /stats, /history)
-- [x] Documentação completa (EDA, Model Selection, API Endpoints)
-
-### 🔄 Em Progresso
-- [ ] Frontend Dashboard (HTML/CSS/JS com Chart.js)
 
 ### 📋 Próximos Passos
-- [ ] Dashboard interativo com visualizações
-- [ ] Vídeo explicativo
 - [ ] (Opcional) Kafka streaming para escalabilidade
 
 ### Sugestão de Escalabilidade
 - Em cenários de alto volume de transações, o sistema pode ser estendido com Apache Kafka para ingestão distribuída, múltiplos consumidores e reprocessamento em tempo real
 
----
-
-## 📚 Documentação
- 
-- **[Decisões Técnicas](docs/DECISOES_TECNICAS.md)**: Justificativas metodológicas (ML + Backend)
-- **[API Endpoints](docs/API_ENDPOINTS.md)**: Documentação completa REST API
-- **[Pipeline de Tratamento de dados README](src/ml/README.md)**: Documentação do pipeline
 
 ---
 
@@ -802,8 +902,7 @@ data_splits              - Histórico de splits train/test
 - **XGBoost**: https://xgboost.readthedocs.io/
 - **PostgreSQL**: https://www.postgresql.org/
 --- 
-
----
+ 
 
 ## 👥 Autores
 

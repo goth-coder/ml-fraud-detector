@@ -10,8 +10,49 @@ Environment Variables:
     FLASK_HOST: Host do servidor (default: 127.0.0.1)
 """
 import os
-from src.api import create_app
+import subprocess
+import signal
+import sys
+from src.services.backend import create_app
 
+
+def kill_process_on_port(port):
+    """
+    Mata qualquer processo rodando na porta especificada (exceto este processo).
+    
+    Args:
+        port: Número da porta
+    """
+    try:
+        current_pid = os.getpid()
+        
+        # Busca PID do processo na porta
+        result = subprocess.run(
+            f"lsof -ti:{port}",
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.stdout.strip():
+            pids = result.stdout.strip().split('\n')
+            for pid_str in pids:
+                try:
+                    pid = int(pid_str)
+                    # Não mata o próprio processo (evita suicídio no reload do Flask)
+                    if pid != current_pid:
+                        os.kill(pid, signal.SIGKILL)
+                        print(f"🔪 Processo {pid} na porta {port} foi encerrado")
+                except (ProcessLookupError, ValueError):
+                    pass
+    except Exception as e:
+        print(f"⚠️  Erro ao tentar liberar porta {port}: {e}")
+
+
+# Só executa o kill se for o processo principal (não no reload do Flask)
+if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+    port = int(os.environ.get('FLASK_PORT', 5000))
+    kill_process_on_port(port)
 
 config_name = os.environ.get('FLASK_ENV', 'development')
 app = create_app(config_name)

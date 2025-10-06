@@ -84,10 +84,7 @@ src/ml/
 ## 🚀 Como Usar
 
 ### Executar Pipeline Completo
-```bash
-# Via test_pipeline.py (recomendado)
-python test_pipeline.py
-
+```bash  
 # Via pipeline direto
 python -m src.ml.pipelines.data_pipeline
 ```
@@ -137,7 +134,7 @@ print(config.database.connection_string)
 - **Performance**: ~2.4s
 - **Paralelização**: Roda em paralelo com Step 02 ⚡
 
-### Step 04: Normalize ✅ **[OTIMIZADO]**
+### Step 04: Normalize ✅  
 - **Entrada**: `raw_transactions`
 - **Saída**: `normalized_transactions` + `models/scalers.pkl`
 - **Função**: `processing/normalization.py::fit_and_transform_features()`
@@ -146,14 +143,14 @@ print(config.database.connection_string)
 - **Otimização**: PostgreSQL COPY em vez de to_sql()
 - **Versionamento**: `models/scalers_v1.0.0.pkl` (opcional)
 
-### Step 05: Feature Engineering ✅ **[NOVO]**
+### Step 05: Feature Engineering ✅
 - **Entrada**: `normalized_transactions`
 - **Saída**: `engineered_transactions` (284,807 × 40 colunas)
 - **Função**: `processing/feature_engineering.py::engineer_all_features()`
 - **Features**: Time_Period, Amount_Log, Amount_Bin, V-statistics (Mean/Std/Min/Max/Range)
 - **Performance**: ~20.6s (com PostgreSQL COPY otimizado)
 
-### Step 05.5: Feature Selection Analysis ✅ **[NOVO]**
+### Step 05.5: Feature Selection Analysis ✅
 - **Entrada**: `engineered_transactions`
 - **Saída**: `reports/feature_selection_analysis.json` (relatório JSON)
 - **Função**: `processing/feature_selection.py::analyze_feature_importance()`
@@ -167,7 +164,7 @@ print(config.database.connection_string)
 - **Performance**: ~15s
 - **Ação Requerida**: Revisar relatório e atualizar `configs.py`
 
-### Step 06: Apply Feature Selection ✅ **[NOVO]**
+### Step 06: Apply Feature Selection ✅
 - **Entrada**: `engineered_transactions`
 - **Saída**: `selected_features` (SE houver exclusões configuradas)
 - **Função**: `processing/feature_selection.py::apply_feature_selection()`
@@ -175,7 +172,7 @@ print(config.database.connection_string)
 - **Performance**: ~5s (ou metadata-only se lista vazia)
 - **Versionamento**: Incrementar `model_version` quando alterar exclusões
 
-### Step 07: Train/Test Split ✅ **[ANTIGO STEP 06]**
+### Step 07: Train/Test Split
 - **Entrada**: `selected_features` (se Step 06 aplicou) OU `engineered_transactions`
 - **Saída**: `train_data` (227,845) + `test_data` (56,962)
 - **Função**: `processing/splitters.py::stratified_train_test_split()`

@@ -55,16 +55,22 @@ def simulate_transaction():
         # 1. Gerar transação real do PostgreSQL
         transaction_features = transaction_generator.generate(transaction_type)
         
-        # 2. Classificar com modelo
+        # 2. Classificar com modelo e medir latência
+        import time
+        start_time = time.time()
         prediction = model_service.predict(transaction_features)
+        latency_ms = (time.time() - start_time) * 1000
         
-        # 3. Salvar classificação no banco
+        # 3. Salvar classificação no banco (is_fraud = ground truth real)
+        true_label = (transaction_type == 'fraud')  # Label real da transação
+        
         classification_id = database_service.save_classification(
-            is_fraud=prediction['is_fraud'],
+            is_fraud=true_label,  # Ground truth (não predição!)
             fraud_probability=prediction['probability'],
             transaction_features=transaction_features,
             model_version=prediction['model_version'],
-            source='webapp'
+            source='webapp',
+            latency_ms=latency_ms
         )
         
         # 4. Salvar transação
@@ -140,6 +146,39 @@ def get_stats():
         
     except Exception as e:
         logger.error(f"Erro em /api/stats: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@api_bp.route('/clear-history', methods=['DELETE'])
+def clear_history():
+    """
+    DELETE /api/clear-history - Limpa todo o histórico de classificações.
+    
+    ATENÇÃO: Esta ação é IRREVERSÍVEL! Remove todos os registros.
+    
+    Response:
+        {
+            "success": true,
+            "deleted_count": 191,
+            "message": "Histórico limpo com sucesso"
+        }
+    """
+    try:
+        deleted_count = database_service.clear_all_history()
+        
+        logger.info(f"Histórico limpo: {deleted_count} registros removidos")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': 'Histórico limpo com sucesso'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Erro em /api/clear-history: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
