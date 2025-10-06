@@ -1,5 +1,5 @@
 /*
- * JavaScript para Dashboard de Detecção de Fraudes - Versão Otimizada
+ * JavaScript para Dashboard de Detecção de Fraudes 
  * 
  * Mudanças principais:
  * 1. Resultado agora é notificação toast (não card fixo)
@@ -370,19 +370,19 @@ async function clearHistory() {
         });
         
         if (!response.ok) {
-            throw new Error('Erro ao limpar histórico');
+            throw new Error('Error clearing history');
         }
         
         const data = await response.json();
         
-        showToast(`✅ Histórico limpo com sucesso! ${data.deleted_count} registros removidos.`, 'success');
+        showToast(`✅ History cleared successfully! ${data.deleted_count} registros removidos.`, 'success');
         
         loadHistory();
         loadStats();
         
     } catch (error) {
-        console.error('Erro ao limpar histórico:', error);
-        showToast('❌ Erro ao limpar histórico. Tente novamente.', 'danger');
+        console.error('Error clearing history:', error);
+        showToast('❌ Error clearing history. Tente novamente.', 'danger');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash-alt"></i> Limpar Histórico';
