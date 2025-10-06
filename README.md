@@ -490,11 +490,11 @@ Cada step é **isolado e reutilizável**, podendo ser orquestrado como **DAG no 
 - **Output**: PostgreSQL `raw_transactions` (284,807 linhas)
 - **Função**: Carregar e validar schema
 
-### ✅ Step 02: Remove Outliers
+### ✅ Step 02: Outlier Analysis
 - **Input**: `raw_transactions`
-- **Output**: `cleaned_transactions` (284,804 linhas)
-- **Função**: Remover Amount > $15k (3 transações, todas legítimas)
-- **Justificativa**: 73.6% das fraudes têm Amount < $100 (mediana: $9.25)
+- **Output**: `cleaned_transactions` (284,807 linhas - sem remoção)
+- **Função**: Análise de outliers (IQR, Z-score)
+- **Justificativa**: Outliers preservados, visto a natureza do dataset desbalanceado
 
 ### ✅ Step 03: Handle Missing Values
 - **Input**: `cleaned_transactions`
