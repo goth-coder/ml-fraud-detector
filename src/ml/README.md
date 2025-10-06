@@ -37,9 +37,6 @@ src/ml/
 │   ├── train.py                   # Treinamento com hiperparâmetros do JSON
 │   ├── tune.py                    # Grid Search + atualização automática de JSON
 │   └── archive/                   # Scripts obsoletos (histórico)
-│
-└── validators/           # [FUTURO] Métricas, validação cruzada
-    └── __init__.py
 ```
 
 ---

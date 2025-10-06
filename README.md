@@ -19,53 +19,111 @@ Desenvolver sistema de detecção de fraude usando **XGBoost otimizado** com:
 ## 🏗️ Arquitetura do Projeto
 
 ### Estrutura MVC-ML Modular
+ 
 ```
-src/ml/
-├── processing/           # 🔧 Funções reutilizáveis (OTIMIZADAS!)
-│   ├── loader.py         # PostgreSQL COPY (81.6% mais rápido)
-│   ├── validation.py     # Schema e integridade
-│   ├── cleaning.py       # Análise de outliers (preserva 100%)
-│   ├── normalization.py  # RobustScaler + StandardScaler
-│   ├── feature_engineering.py  # 9 novas features
-│   ├── feature_selection.py    # Análise automatizada
-│   ├── splitters.py      # Stratified train/test split
-│   └── metadata.py       # Pipeline metadata tracking
+ml-fraud-detector/
+├── main.py                      # 🎯 CLI principal (pipeline/train/tune/predict)
+├── pyproject.toml               # Configuração do projeto (uv/pip)
+├── requirements.txt             # Dependências Python
+├── README.md                    # Este arquivo
 │
-├── pipelines/            # 🚀 Encadeamento de processos
-│   └── data_pipeline.py  # Steps 01-07 (completo, 52% mais rápido)
+├── data/                        # 📊 Datasets e configurações
+│   ├── creditcard.csv           # Dataset original (284,807 transações)
+│   ├── xgboost_hyperparameters.json  # Hiperparâmetros ativos
+│   ├── archive/                 # Versões antigas de hiperparâmetros
+│   └── examples/                # Exemplos de transações para teste
+│       ├── fraud_transaction.json
+│       └── legitimate_transaction.json
 │
-├── training/             # 🎓 Scripts de treinamento ML
-│   ├── train.py          # ⭐ Treino com hiperparâmetros do JSON
-│   └── tune.py           # ⭐ Grid Search + atualização automática de JSON
+├── models/                      # 🤖 Modelos treinados
+│   ├── scalers.pkl              # RobustScaler + StandardScaler
+│   ├── xgboost_v2.1.0.pkl       # ⭐ Modelo em produção
+│   └── archive/                 # Versões antigas de modelos
 │
-└── models/               # ⚙️ Configurações centralizadas
-    └── configs.py        # Dataclasses tipadas + carregamento de JSON
+├── reports/                     # 📈 Relatórios gerados (JSON)
+│   └── feature_selection_report.json
+│
+├── database/                    # 🗄️ Configuração PostgreSQL
+│   ├── docker-compose.yml       # Docker setup (PostgreSQL 15)
+│   └── schema.sql               # Schema completo (7 tabelas pipeline + 3 metadata)
+│
+├── docs/                        # 📚 Documentação técnica
+│   ├── EDA_REPORT.md            # Análise exploratória
+│   ├── MODEL_SELECTION.md       # Comparação de 4 modelos
+│   ├── DATA_ARCHITECTURE.md     # Arquitetura PostgreSQL + Pickle
+│   ├── DECISOES_TECNICAS.md     # Decisões ML + otimizações
+│   ├── TRANSACTION_EXAMPLES.md  # Exemplos práticos de transações (fraude vs legítima)
+│   └── images/                  # Gráficos EDA
+│       ├── 01_class_distribution.png
+│       ├── 02_amount_analysis.png
+│       ├── 03_correlation_heatmap.png
+│       └── ...
+│
+└── src/                         # 💻 Código fonte
+    ├── __init__.py
+    │
+    ├── ml/                      # 🧠 Machine Learning
+    │   ├── __init__.py
+    │   ├── README.md            # Documentação da arquitetura MVC-ML
+    │   │
+    │   ├── processing/          # 🔧 Funções de processamento
+    │   │   ├── __init__.py
+    │   │   ├── loader.py        # PostgreSQL COPY (otimizado 81.6%)
+    │   │   ├── validation.py    # Schema e integridade
+    │   │   ├── cleaning.py      # Análise de outliers
+    │   │   ├── normalization.py # RobustScaler + StandardScaler
+    │   │   ├── feature_engineering.py  # 9 novas features
+    │   │   ├── feature_selection.py    # Análise automatizada
+    │   │   ├── splitters.py     # Stratified train/test split
+    │   │   └── metadata.py      # Pipeline metadata tracking
+    │   │
+    │   ├── pipelines/           # 🚀 Orquestração
+    │   │   ├── __init__.py
+    │   │   └── data_pipeline.py # Steps 01-07 (completo)
+    │   │
+    │   ├── training/            # 🎓 Treinamento ML
+    │   │   ├── __init__.py
+    │   │   ├── train.py         # Treino com JSON configs
+    │   │   └── tune.py          # Grid Search + auto-update JSON
+    │   │
+    │   └── models/              # ⚙️ Configurações
+    │       ├── __init__.py
+    │       └── configs.py       # Dataclasses + carregamento JSON
+    │
+    ├── models/                  # 📦 Data models
+    │   ├── __init__.py
+    │   └── database_models.py   # SQLAlchemy models
+    │
+    └── services/                # 🔌 Serviços
+        └── database/            # 🗄️ Conexão PostgreSQL
+            ├── __init__.py
+            └── connection.py    # Engine + connection pooling
 ```
+ 
 
-### Pipeline de Dados (7 Steps - 52% mais rápido ⚡)
+### Pipeline de Dados (7 Steps)
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    DATA PROCESSING PIPELINE (~62s)                    │
+│                    DATA PROCESSING PIPELINE                          │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  CSV Raw (284,807) → [01] Load Raw → PostgreSQL (raw_transactions)  │
-│                         ↓ (~20s)                                     │
+│  CSV Raw (284,807) → [01] Load Raw → PostgreSQL (raw_transactions)   │
+│                         ↓                                            │
 │                    [02] Outlier Analysis → Metadata only             │
-│                         ↓ (paralelo ~2.4s)                          │
+│                         ↓                                            │
 │                    [03] Missing Values → Metadata only               │
-│                         ↓ (paralelo ~2.4s)                          │
+│                         ↓                                            │
 │                    [04] Normalize → PostgreSQL + scalers.pkl         │
-│                         ↓ (~16.5s - OTIMIZADO 81.6% 🔥)             │
+│                         ↓                                            │
 │                    [05] Feature Engineering → PostgreSQL (40 cols)   │
-│                         ↓ (~20.6s - Time_Period, Amount_Log, stats) │
+│                         ↓ (Time_Period, Amount_Log, stats)           │
 │                    [05.5] Feature Selection Analysis → JSON Report   │
-│                         ↓ (~15s - Pearson, Spearman, MI, VIF)       │
+│                         ↓ (Pearson, Spearman, MI, VIF)               │
 │                    [06] Apply Feature Selection → PostgreSQL (33)    │
-│                         ↓ (~5s - Config-driven removal)             │
+│                         ↓ (Config-driven removal)                    │
 │                    [07] Train/Test Split → train_data + test_data    │
-│                         ↓ (~22.2s - StratifiedKFold 80/20)          │
-│                                                                      │
-│  TOTAL: ~62s (antes: ~130s) - GANHO: 52% ⚡                         │
+│                         ↓ (StratifiedKFold 80/20)                    │
+│                                                                      │ 
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -198,22 +256,9 @@ Executa pipeline completo de dados (Steps 01-07, ~62s):
 # Pipeline completo
 python main.py pipeline
 
-# Saída esperada:
-# 🚀 MODO: PIPELINE DE DADOS
-# Data: 2025-10-03 14:35:22
-# ⏱️  Tempo estimado: ~62 segundos
-# 
-# 🚀 Executando pipeline completo...
-#    Script: data_pipeline.py
-#    Steps: 01-07
-# 
+# Saída esperada: 
 # ✅ Pipeline completo!
 # 📊 Resultado esperado:
-#    ✅ raw_transactions: 284,807 linhas
-#    ✅ cleaned_transactions: 284,804 linhas
-#    ✅ imputed_transactions: 284,804 linhas
-#    ✅ normalized_transactions: 284,804 linhas
-#    ✅ engineered_transactions: 284,804 linhas (40 features)
 #    ✅ train_features: ~227,843 linhas (394 fraudes)
 #    ✅ test_features: ~56,961 linhas (98 fraudes)
 #    ✅ scalers.pkl salvo em models/
@@ -275,18 +320,7 @@ python main.py tune -ow
 python main.py tune --model-version 3.0.0 -ow
 
 # Saída esperada:
-# 🔧 MODO: TUNING (Grid Search)
-# ⚠️  ATENÇÃO: Grid Search pode levar ~20 minutos
-# ✅ Train: 227,845 linhas
-# 
-# 📌 Versões anteriores disponíveis:
-#    ✅ v2.0.0: PR-AUC 0.8847, Precision 85.42%, FP 14, Features 37
-#       v1.1.0: PR-AUC 0.8719, Precision 72.27%, FP 33, Features 37
-# 
 # 🔧 Executando Grid Search...
-#    Combinações: 729 (3×3×3×3×3×3×1)
-#    CV: StratifiedKFold k=3
-#    Total fits: 2,187
 # ✅ Grid Search completo!
 # 🏆 Melhores Parâmetros:
 #    colsample_bytree: 0.7
@@ -294,9 +328,7 @@ python main.py tune --model-version 3.0.0 -ow
 #    max_depth: 6
 #    ...
 #    PR-AUC: 0.8772
-# 
-# � Atualizando configs.py com melhores hiperparâmetros...
-#    Backup criado: configs_backup_20251003_143522.py
+#    Atualizando configs.py com melhores hiperparâmetros...
 #    ✅ configs.py atualizado!
 ```
 
@@ -444,126 +476,9 @@ excluded_features = [
 | **False Negatives** | 12 | 16 | 18 |
 | **True Negatives** | 56,831 | 56,850 | 56,851 |
 
----
-
-## 🚧 Próximos Passos (Opcional)
-- [ ] **SHAP Analysis**: Explicabilidade de predições individuais
-- [ ] **Kafka Streaming**: Real-time fraud detection (ver `docs/plan_kafka.md`)
-- [ ] **Dashboard Flask**: Interface web para inferência interativa
-- [ ] **Docker Full Stack**: Container com PostgreSQL + Flask + ML
-- [ ] **CI/CD Pipeline**: GitHub Actions para testes + deploy automático
-
----
-
-## 📖 Referências
-
-- **Dataset**: [Kaggle - Credit Card Fraud Detection](https://www.kaggle.com/mlg-ulb/creditcardfraud)
-- **XGBoost**: Chen & Guestrin (2016) - "XGBoost: A Scalable Tree Boosting System"
-- **PR-AUC**: Saito & Rehmsmeier (2015) - "The Precision-Recall Plot Is More Informative"
-- **RobustScaler**: Scikit-learn - Normalização resistente a outliers (mediana + IQR)
-- **PostgreSQL COPY**: PostgreSQL Documentation - Bulk loading optimization
-
----
-
-## 👥 Autores
-- Victor Lucas Santos de Oliveira
-- Adrianny Lelis da Silva
-
 --- 
-
-
-## 📊 Treinamento de Modelos
-  
-## 4. EDA (Análise Exploratória)
-```bash
-# Gráficos gerados em docs/images/
-ls docs/images/*.png
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-ml-fraud-detector/
-├── main.py                      # 🎯 CLI principal (pipeline/train/tune/predict)
-├── pyproject.toml               # Configuração do projeto (uv/pip)
-├── requirements.txt             # Dependências Python
-├── README.md                    # Este arquivo
-│
-├── data/                        # 📊 Datasets e configurações
-│   ├── creditcard.csv           # Dataset original (284,807 transações)
-│   ├── xgboost_hyperparameters.json  # Hiperparâmetros ativos
-│   ├── archive/                 # Versões antigas de hiperparâmetros
-│   └── examples/                # Exemplos de transações para teste
-│       ├── fraud_transaction.json
-│       └── legitimate_transaction.json
-│
-├── models/                      # 🤖 Modelos treinados
-│   ├── scalers.pkl              # RobustScaler + StandardScaler
-│   ├── xgboost_v2.1.0.pkl       # ⭐ Modelo em produção
-│   └── archive/                 # Versões antigas de modelos
-│
-├── reports/                     # 📈 Relatórios gerados (JSON)
-│   └── feature_selection_report.json
-│
-├── database/                    # 🗄️ Configuração PostgreSQL
-│   ├── docker-compose.yml       # Docker setup (PostgreSQL 15)
-│   └── schema.sql               # Schema completo (7 tabelas pipeline + 3 metadata)
-│
-├── docs/                        # 📚 Documentação técnica
-│   ├── EDA_REPORT.md            # Análise exploratória
-│   ├── MODEL_SELECTION.md       # Comparação de 4 modelos
-│   ├── DATA_ARCHITECTURE.md     # Arquitetura PostgreSQL + Pickle
-│   ├── DECISOES_TECNICAS.md     # Decisões ML + otimizações
-│   ├── TRANSACTION_EXAMPLES.md  # Exemplos práticos de transações (fraude vs legítima)
-│   └── images/                  # Gráficos EDA
-│       ├── 01_class_distribution.png
-│       ├── 02_amount_analysis.png
-│       ├── 03_correlation_heatmap.png
-│       └── ...
-│
-└── src/                         # 💻 Código fonte
-    ├── __init__.py
-    │
-    ├── ml/                      # 🧠 Machine Learning
-    │   ├── __init__.py
-    │   ├── README.md            # Documentação da arquitetura MVC-ML
-    │   │
-    │   ├── processing/          # 🔧 Funções de processamento
-    │   │   ├── __init__.py
-    │   │   ├── loader.py        # PostgreSQL COPY (otimizado 81.6%)
-    │   │   ├── validation.py    # Schema e integridade
-    │   │   ├── cleaning.py      # Análise de outliers
-    │   │   ├── normalization.py # RobustScaler + StandardScaler
-    │   │   ├── feature_engineering.py  # 9 novas features
-    │   │   ├── feature_selection.py    # Análise automatizada
-    │   │   ├── splitters.py     # Stratified train/test split
-    │   │   └── metadata.py      # Pipeline metadata tracking
-    │   │
-    │   ├── pipelines/           # 🚀 Orquestração
-    │   │   ├── __init__.py
-    │   │   └── data_pipeline.py # Steps 01-07 (completo)
-    │   │
-    │   ├── training/            # 🎓 Treinamento ML
-    │   │   ├── __init__.py
-    │   │   ├── train.py         # Treino com JSON configs
-    │   │   └── tune.py          # Grid Search + auto-update JSON
-    │   │
-    │   └── models/              # ⚙️ Configurações
-    │       ├── __init__.py
-    │       └── configs.py       # Dataclasses + carregamento JSON
-    │
-    ├── models/                  # 📦 Data models
-    │   ├── __init__.py
-    │   └── database_models.py   # SQLAlchemy models
-    │
-    └── services/                # 🔌 Serviços
-        └── database/            # 🗄️ Conexão PostgreSQL
-            ├── __init__.py
-            └── connection.py    # Engine + connection pooling
-```
-
+ 
+## Para saber mais 🧠
 ---
 
 ## 🔄 Pipeline de Tratamento de Dados (Modular)
@@ -604,18 +519,6 @@ Cada step é **isolado e reutilizável**, podendo ser orquestrado como **DAG no 
 📚 **Documentação completa**: [`src/ml/README.md`](src/ml/README.md)
 
 ---
-## 🤖 Modelos de Machine Learning
-
-**Relatório Completo**: [`docs/MODEL_SELECTION.md`](docs/MODEL_SELECTION.md) - Análise comparativa completa de 4 algoritmos + 3 versões XGBoost
-
-### Abordagem Testada: Comparação de 4 Algoritmos
-- ✅ **XGBoost v2.1.0** (⭐ **RECOMENDADO**): PR-AUC 0.8772, Precision 86.60%, 13 FP
-- ✅ **XGBoost v2.0.0** (Grid Search): PR-AUC 0.8847, Precision 85.42%, 14 FP  
-- ✅ **XGBoost v1.1.0** (Baseline): PR-AUC 0.8719, Precision 72.27%, 33 FP
-- ❌ **Decision Tree**: PR-AUC 0.7680, Precision 24.24%, 250 FP (rejeitado)
-- ❌ **LightGBM**: PR-AUC 0.0372, Precision 3.36%, 2,475 FP (falha catastrófica)
-- ❌ **SVM RBF**: PR-AUC 0.5326, Precision 19.50%, 339 FP (muito lento: 15 min)
----
 
 ## 📊 Análise Exploratória (EDA)
 ### Insights Principais
@@ -642,6 +545,18 @@ Cada step é **isolado e reutilizável**, podendo ser orquestrado como **DAG no 
 📊 **Gráficos**: `docs/images/*.png`  
 📋 **Relatório Completo**: [`docs/EDA_REPORT.md`](docs/EDA_REPORT.md) - Análise detalhada com decisões técnicas e justificativas
 
+---
+## 🤖 Modelos de Machine Learning
+
+**Relatório Completo**: [`docs/MODEL_SELECTION.md`](docs/MODEL_SELECTION.md) - Análise comparativa completa de 4 algoritmos + 3 versões XGBoost
+
+### Abordagem Testada: Comparação de 4 Algoritmos
+- ✅ **XGBoost v2.1.0** (⭐ **RECOMENDADO**): PR-AUC 0.8772, Precision 86.60%, 13 FP
+- ✅ **XGBoost v2.0.0** (Grid Search): PR-AUC 0.8847, Precision 85.42%, 14 FP  
+- ✅ **XGBoost v1.1.0** (Baseline): PR-AUC 0.8719, Precision 72.27%, 33 FP
+- ❌ **Decision Tree**: PR-AUC 0.7680, Precision 24.24%, 250 FP (rejeitado)
+- ❌ **LightGBM**: PR-AUC 0.0372, Precision 3.36%, 2,475 FP (falha catastrófica)
+- ❌ **SVM RBF**: PR-AUC 0.5326, Precision 19.50%, 339 FP (muito lento: 15 min)
 ---
 
 ## 🗄️ PostgreSQL Schema
@@ -676,11 +591,10 @@ data_splits              - Histórico de splits train/test
 - [x] Documentação (plan_main.md, plan_kafka.md, changelog.md)
 
 ### 🔄 Em Progresso
-- [ ] Decisão da aplicação
+- [ ] Backend API Flask 
 
 ### 📋 Próximos Passos
-- [ ] App/Dashboard Flask
-- [ ] Kafka Streaming (opcional)
+- [ ] Frontend Dashboard
 - [ ] Vídeo explicativo
 
 ---
