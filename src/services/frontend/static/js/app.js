@@ -1,134 +1,134 @@
 /*
- * JavaScript para Dashboard de Detecção de Fraudes 
+ * JavaScript for Fraud Detection Dashboard
  * 
- * Mudanças principais:
- * 1. Resultado agora é notificação toast (não card fixo)
- * 2. Confiança calculada pela distância de 50% (decision boundary)
- * 3. Estatísticas apenas na sidebar (removido duplicação inline)
+ * Key changes:
+ * 1. Result is now a toast notification (not a fixed card)
+ * 2. Confidence calculated by distance from 50% (decision boundary)
+ * 3. Stats only in the sidebar (removed inline duplication)
  */
 
 // ============================================
-// CONFIGURAÇÃO
+// CONFIGURATION
 // ============================================
 
 const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
 // ============================================
-// FUNÇÕES AUXILIARES
+// HELPER FUNCTIONS
 // ============================================
 
 /**
- * Mostra um toast de notificação com resultado da classificação
- * @param {string} message - Mensagem (HTML aceito)
- * @param {string} type - Tipo do toast ('success', 'danger', 'warning')
+ * Show a toast notification with classification result
+ * @param {string} message - Message (HTML allowed)
+ * @param {string} type - Toast type ('success', 'danger', 'warning')
  */
 function showToast(message, type = 'info') {
     const toastElement = document.getElementById('notification-toast');
     const toastMessage = document.getElementById('toast-message');
     const toastHeader = toastElement.querySelector('.toast-header');
     
-    // Define a mensagem (aceita HTML)
+    // Set message (HTML allowed)
     toastMessage.innerHTML = message;
     
-    // Define cor do header baseado no tipo
+    // Set header color based on type
     toastHeader.className = `toast-header bg-${type} text-white`;
     
-    // Cria instância do toast do Bootstrap
+    // Create Bootstrap toast instance
     const toast = new bootstrap.Toast(toastElement, {
-        delay: 10000 // 10 segundos para ler resultado completo (ground truth + predição)
+        delay: 10000 // 10 seconds to read full result (ground truth + prediction)
     });
     
-    // Mostra o toast
+    // Show toast
     toast.show();
 }
 
 /**
- * Formata data/hora para exibição com timezone
- * @param {string} isoString - Data em formato ISO
- * @returns {string} Data formatada (dd/mm/yyyy hh:mm UTC±HH:MM)
+ * Format date/time for display with timezone
+ * @param {string} isoString - Date in ISO format
+ * @returns {string} Formatted date (mm/dd/yyyy hh:mm UTC±HH:MM)
  */
 function formatDateTime(isoString) {
     const date = new Date(isoString);
-    const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     const year = date.getFullYear();
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     
-    // Pega timezone offset (ex: -03:00 para BRT)
+    // Get timezone offset (e.g., -03:00 for BRT)
     const tzOffset = -date.getTimezoneOffset();
     const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
     const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0');
     const tzSign = tzOffset >= 0 ? '+' : '-';
     const tz = `UTC${tzSign}${tzHours}:${tzMinutes}`;
     
-    return `${day}/${month}/${year} ${hours}:${minutes} ${tz}`;
+    return `${month}/${day}/${year} ${hours}:${minutes} ${tz}`;
 }
 
 // ============================================
-// LÓGICA PRINCIPAL - SIMULAÇÃO
+// MAIN LOGIC - SIMULATION
 // ============================================
 
 /**
- * Executa simulação de transação
- * Chama a API, exibe resultado como toast e atualiza dados
+ * Execute transaction simulation
+ * Calls the API, shows result as toast, and updates data
  */
 async function simulateTransaction() {
     const btn = document.getElementById('btn-simulate');
     
-    // Desabilita botão durante requisição (evita duplo-clique)
+    // Disable button during request (avoid double click)
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
     
     try {
-        // Faz requisição HTTP POST para /api/simulate
+        // Make HTTP POST request to /api/simulate
         const response = await fetch(`${API_BASE_URL}/simulate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                transaction_type: selectedType  // 'legitimate' ou 'fraud'
+                transaction_type: selectedType  // 'legitimate' or 'fraud'
             })
         });
         
-        // Verifica se a resposta foi bem-sucedida
+        // Check if response was successful
         if (!response.ok) {
-            throw new Error('Erro na resposta da API');
+            throw new Error('API response error');
         }
         
-        // Converte resposta JSON
+        // Parse JSON response
         const data = await response.json();
         
-        // Exibe resultado como notificação
+        // Show result as notification
         displayResult(data);
         
-        // Atualiza histórico e estatísticas
+        // Refresh history and stats
         loadHistory();
         loadStats();
         
     } catch (error) {
-        console.error('Erro ao simular transação:', error);
-        showToast('❌ Erro ao processar simulação. Tente novamente.', 'danger');
+        console.error('Error simulating transaction:', error);
+        showToast('❌ Error processing simulation. Please try again.', 'danger');
     } finally {
-        // Reabilita botão
+        // Re-enable button
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-bolt me-2"></i>EXECUTAR SIMULAÇÃO';
+        btn.innerHTML = '<i class="fas fa-bolt me-2"></i>RUN SIMULATION';
     }
 }
 
 /**
- * Exibe resultado como notificação toast
+ * Show result as toast notification
  * 
- * LÓGICA:
- * - Predição: O que o modelo classificou (> 50% = fraude)
- * - Ground Truth: O que a transação realmente é (transaction_type)
- * - Mostra AMBOS para o usuário ver se acertou/errou
+ * LOGIC:
+ * - Prediction: What the model classified (> 50% = fraud)
+ * - Ground Truth: What the transaction really is (transaction_type)
+ * - Show BOTH so the user sees hits/misses
  * 
- * CONFIANÇA RESTRITA:
- * - ALTA: prob < 10% OU prob > 90% (muito longe do threshold)
- * - MODERADA: 10-20% OU 80-90% (relativamente confiável)
- * - BAIXA: 20-80% (próximo ao threshold, incerto)
+ * RESTRICTED CONFIDENCE:
+ * - HIGH: prob < 10% OR prob > 90% (far from threshold)
+ * - MODERATE: 10-20% OR 80-90% (reasonably confident)
+ * - LOW: 20-80% (near threshold, uncertain)
  */
 function displayResult(data) {
     const predictedFraud = data.is_fraud;
@@ -136,19 +136,19 @@ function displayResult(data) {
     const percentage = (data.fraud_probability * 100).toFixed(1);
     const prob = data.fraud_probability * 100;
     
-    let confidence = 'BAIXA';
+    let confidence = 'LOW';
     let confidenceEmoji = '⚠️';
     if (prob < 10 || prob > 90) {
-        confidence = 'ALTA';
+        confidence = 'HIGH';
         confidenceEmoji = '✅';
     } else if ((prob >= 10 && prob < 20) || (prob > 80 && prob <= 90)) {
-        confidence = 'MODERADA';
+        confidence = 'MODERATE';
         confidenceEmoji = '⚡';
     }
     
     const isCorrect = (predictedFraud === groundTruth);
     const resultEmoji = isCorrect ? '✅' : '❌';
-    const resultLabel = isCorrect ? 'ACERTO' : (groundTruth ? 'FALSO NEGATIVO' : 'FALSO POSITIVO');
+    const resultLabel = isCorrect ? 'HIT' : (groundTruth ? 'FALSE NEGATIVE' : 'FALSE POSITIVE');
     
     let message = '';
     let toastType = '';
@@ -157,14 +157,14 @@ function displayResult(data) {
         toastType = 'danger';
         message = `
             <div class="d-flex align-items-center mb-2">
-                <h5 class="mb-0 text-white">🚨 <strong>FRAUDE DETECTADA!</strong></h5>
+                <h5 class="mb-0 text-white">🚨 <strong>FRAUD DETECTED!</strong></h5>
             </div>
             <div class="mb-2 text-white">
                 <strong>ID:</strong> #${data.classification_id}<br>
-                <strong>Probabilidade:</strong> ${percentage}%<br>
-                <strong>Confiança:</strong> ${confidenceEmoji} ${confidence}<br>
-                <strong>Ground Truth:</strong> ${groundTruth ? '🚨 Fraude Real' : '✅ Legítima Real'}<br>
-                <strong>Resultado:</strong> ${resultEmoji} ${resultLabel}
+                <strong>Probability:</strong> ${percentage}%<br>
+                <strong>Confidence:</strong> ${confidenceEmoji} ${confidence}<br>
+                <strong>Ground Truth:</strong> ${groundTruth ? '🚨 Actual Fraud' : '✅ Actual Legitimate'}<br>
+                <strong>Result:</strong> ${resultEmoji} ${resultLabel}
             </div>
             <small class="text-white-50">Modelo: ${data.model_version}</small>
         `;
@@ -172,14 +172,14 @@ function displayResult(data) {
         toastType = 'success';
         message = `
             <div class="d-flex align-items-center mb-2">
-                <h5 class="mb-0 text-white">✅ <strong>Transação Legítima</strong></h5>
+                <h5 class="mb-0 text-white">✅ <strong>Legitimate Transaction</strong></h5>
             </div>
             <div class="mb-2 text-white">
                 <strong>ID:</strong> #${data.classification_id}<br>
-                <strong>Probabilidade de fraude:</strong> ${percentage}%<br>
-                <strong>Confiança:</strong> ${confidenceEmoji} ${confidence}<br>
-                <strong>Ground Truth:</strong> ${groundTruth ? '🚨 Fraude Real' : '✅ Legítima Real'}<br>
-                <strong>Resultado:</strong> ${resultEmoji} ${resultLabel}
+                <strong>Fraud probability:</strong> ${percentage}%<br>
+                <strong>Confidence:</strong> ${confidenceEmoji} ${confidence}<br>
+                <strong>Ground Truth:</strong> ${groundTruth ? '🚨 Actual Fraud' : '✅ Actual Legitimate'}<br>
+                <strong>Result:</strong> ${resultEmoji} ${resultLabel}
             </div>
             <small class="text-white-50">Modelo: ${data.model_version}</small>
         `;
@@ -189,12 +189,12 @@ function displayResult(data) {
 }
 
 // ============================================
-// LÓGICA - ESTATÍSTICAS
+// LOGIC - STATS
 // ============================================
 
 /**
- * Carrega estatísticas das últimas 24h
- * Atualiza apenas o painel da sidebar (não há mais inline)
+ * Load statistics for the last 24h
+ * Updates only the sidebar panel (no inline anymore)
  */
 async function loadStats() {
     try {
@@ -213,7 +213,7 @@ async function loadStats() {
         percentageBar.style.width = `${stats.fraud_percentage}%`;
         
     } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
+        console.error('Error loading statistics:', error);
         document.getElementById('stat-total-sidebar').textContent = '0';
         document.getElementById('stat-fraud-sidebar').textContent = '0';
         document.getElementById('stat-percentage-sidebar').textContent = '0%';
@@ -223,29 +223,29 @@ async function loadStats() {
 }
 
 // ============================================
-// LÓGICA - HISTÓRICO
+// LOGIC - HISTORY
 // ============================================
 
 /**
- * Carrega histórico de classificações
- * Busca últimas 10 classificações e popula tabela
+ * Load classification history
+ * Fetch last 10 classifications and populate table
  */
 async function loadHistory() {
     try {
         const response = await fetch(`${API_BASE_URL}/history?limit=10`);
         const data = await response.json();
         
-        // A API retorna { success: true, history: [...], count: N }
+    // API returns { success: true, history: [...], count: N }
         const history = data.history || [];
         
         const tbody = document.getElementById('history-table-body');
         
-        // Se não há dados
+        // If no data
         if (history.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="text-center text-muted">
-                        Nenhuma classificação encontrada
+                        No classifications found
                     </td>
                 </tr>
             `;
@@ -261,8 +261,8 @@ async function loadHistory() {
                 <td>${formatDateTime(item.predicted_at)}</td>
                 <td>
                     ${predictedFraud
-                        ? '<span class="badge bg-danger">🚨 Fraude</span>' 
-                        : '<span class="badge bg-success">✅ Legítima</span>'}
+                        ? '<span class="badge bg-danger">🚨 Fraud</span>' 
+                        : '<span class="badge bg-success">✅ Legitimate</span>'}
                 </td>
                 <td>
                     <span class="badge bg-secondary">${(item.fraud_probability * 100).toFixed(1)}%</span>
@@ -271,7 +271,7 @@ async function loadHistory() {
                     <span class="text-muted">$${item.amount.toFixed(2)}</span>
                 </td>
                 <td>
-                    <span class="badge ${item.confidence === 'ALTA' ? 'bg-success' : item.confidence === 'MODERADA' ? 'bg-warning' : 'bg-secondary'}">${item.confidence}</span>
+                    <span class="badge ${item.confidence === 'HIGH' ? 'bg-success' : item.confidence === 'MODERATE' ? 'bg-warning' : 'bg-secondary'}">${item.confidence}</span>
                 </td>
                 <td>
                     <small class="text-muted">${item.model_version}</small>
@@ -280,11 +280,11 @@ async function loadHistory() {
         `;}).join('');
         
     } catch (error) {
-        console.error('Erro ao carregar histórico:', error);
+        console.error('Error loading history:', error);
         document.getElementById('history-table-body').innerHTML = `
             <tr>
                 <td colspan="7" class="text-center text-danger">
-                    <i class="fas fa-exclamation-triangle"></i> Erro ao carregar dados
+                    <i class="fas fa-exclamation-triangle"></i> Error loading data
                 </td>
             </tr>
         `;
@@ -292,12 +292,12 @@ async function loadHistory() {
 }
 
 // ============================================
-// LÓGICA - HEALTH CHECK
+// LOGIC - HEALTH CHECK
 // ============================================
 
 /**
- * Verifica status da API
- * Atualiza badge no navbar
+ * Check API status
+ * Update navbar badge
  */
 async function checkHealth() {
     try {
@@ -310,10 +310,10 @@ async function checkHealth() {
             badge.innerHTML = '<i class="fas fa-check-circle"></i> API Online';
         } else {
             badge.className = 'badge bg-warning';
-            badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> API com problemas';
+            badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> API issues';
         }
     } catch (error) {
-        console.error('Erro no health check:', error);
+        console.error('Health check error:', error);
         const badge = document.getElementById('status-badge');
         badge.className = 'badge bg-danger';
         badge.innerHTML = '<i class="fas fa-times-circle"></i> API Offline';
@@ -321,13 +321,13 @@ async function checkHealth() {
 }
 
 // ============================================
-// LÓGICA - TOGGLE SWITCH
+// LOGIC - TOGGLE SWITCH
 // ============================================
 
-let selectedType = 'legitimate'; // Estado do toggle
+let selectedType = 'legitimate'; // Toggle state
 
 /**
- * Atualiza visual do toggle switch
+ * Update toggle switch visuals
  */
 function updateToggleVisual() {
     const options = document.querySelectorAll('.toggle-option');
@@ -347,22 +347,22 @@ function updateToggleVisual() {
 }
 
 // ============================================
-// LÓGICA - LIMPAR HISTÓRICO
+// LOGIC - CLEAR HISTORY
 // ============================================
 
 /**
- * Limpa todo o histórico de classificações
- * Pede confirmação antes de executar
+ * Clear the entire classification history
+ * Ask for confirmation before executing
  */
 async function clearHistory() {
-    if (!confirm('⚠️ Tem certeza que deseja limpar TODO o histórico?\n\nEsta ação NÃO pode ser desfeita!')) {
+    if (!confirm('⚠️ Are you sure you want to CLEAR ALL history?\n\nThis action CANNOT be undone!')) {
         return;
     }
     
     const btn = document.getElementById('btn-clear-history');
     
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Limpando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
     
     try {
         const response = await fetch(`${API_BASE_URL}/clear-history`, {
@@ -375,36 +375,36 @@ async function clearHistory() {
         
         const data = await response.json();
         
-        showToast(`✅ History cleared successfully! ${data.deleted_count} registros removidos.`, 'success');
+    showToast(`✅ History cleared successfully! ${data.deleted_count} records removed.`, 'success');
         
         loadHistory();
         loadStats();
         
     } catch (error) {
         console.error('Error clearing history:', error);
-        showToast('❌ Error clearing history. Tente novamente.', 'danger');
+        showToast('❌ Error clearing history. Please try again.', 'danger');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Limpar Histórico';
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Clear History';
     }
 }
 
 // ============================================
-// INICIALIZAÇÃO
+// INITIALIZATION
 // ============================================
 
 /**
- * Executa quando a página carregar completamente
+ * Runs when the page has fully loaded
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard inicializado');
+    console.log('🚀 Dashboard initialized');
     
-    // Carrega dados iniciais
+    // Load initial data
     loadHistory();
     loadStats();
     checkHealth();
     
-    // Health check periódico (a cada 30 segundos)
+    // Periodic health check (every 30 seconds)
     setInterval(checkHealth, 30000);
     
     // Event Listeners
@@ -428,6 +428,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Inicializa visual do toggle
+    // Initialize toggle visuals
     updateToggleVisual();
 });
